@@ -1,0 +1,33 @@
+# Virtual environment
+backend/venv/
+venv/
+*.pyc
+__pycache__/
+*.pyo
+
+# Node modules & build dist
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+
+# Database & temporary files
+backend/chroma_db/
+chroma_db/
+backend/temp_uploads/
+temp_uploads/
+*.wav
+*.webm
+*.mp3
+*.m4a
+*.pptx
+*.pdf
+
+# Environment files & secret keys
+.env
+.env.local
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
