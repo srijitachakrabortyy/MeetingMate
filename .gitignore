@@ -8,6 +8,8 @@ __pycache__/
 # Node modules & build dist
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
+.vite/
 node_modules/
 dist/
 
