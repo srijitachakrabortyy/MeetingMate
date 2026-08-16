@@ -23,13 +23,14 @@ export default function MeetingSummaryView({ meetingData, apiKey }) {
   const [copied, setCopied] = useState(false);
 
   const filteredActionItems = (analysis.action_items || []).filter(item => {
-    if (selectedPriority !== 'ALL' && item.priority.toUpperCase() !== selectedPriority) return false;
+    if (!item) return false;
+    if (selectedPriority !== 'ALL' && (item.priority || '').toUpperCase() !== selectedPriority) return false;
     return true;
   });
 
   const filteredTranscript = (transcript || []).filter(t => 
-    t.speaker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.text.toLowerCase().includes(searchTerm.toLowerCase())
+    (t?.speaker || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t?.text || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleDownloadReport = async () => {

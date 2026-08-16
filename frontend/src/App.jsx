@@ -14,11 +14,16 @@ export default function App() {
   // Auto-fetch sample meeting data on initial load
   useEffect(() => {
     fetch('/api/sample')
-      .then(res => res.json())
-      .then(data => {
-        setMeetingData(data);
+      .then(res => {
+        if (!res.ok) throw new Error("API not ready");
+        return res.json();
       })
-      .catch(err => console.log('Sample load fallback:', err));
+      .then(data => {
+        if (data && data.analysis && data.transcript) {
+          setMeetingData(data);
+        }
+      })
+      .catch(err => console.log('Sample load API check:', err));
   }, []);
 
   const handleProcessComplete = (data) => {
