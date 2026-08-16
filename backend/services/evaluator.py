@@ -82,7 +82,7 @@ class GenAIEvaluator:
                         if raw_text.startswith("```json"):
                             raw_text = raw_text.split("```json")[1].split("```")[0].strip()
                         elif raw_text.startswith("```"):
-                            raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+                            raw_text = raw_text.split("```")[1].split("```")[0].strip()
                         return json.loads(raw_text)
                     except Exception:
                         continue

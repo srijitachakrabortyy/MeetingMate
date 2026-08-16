@@ -294,6 +294,12 @@ def export_markdown_report(meeting_id: str):
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
+# Mount compiled React frontend static files if available
+from fastapi.staticfiles import StaticFiles
+dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+if os.path.exists(dist_path):
+    app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

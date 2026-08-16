@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  meetingmate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meetingmate-app
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - ./backend/temp_uploads:/app/backend/temp_uploads
+      - ./backend/chroma_db:/app/backend/chroma_db
+    restart: unless-stopped
