@@ -294,11 +294,12 @@ def export_markdown_report(meeting_id: str):
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
-# Mount compiled React frontend static files if available
-from fastapi.staticfiles import StaticFiles
-dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
-if os.path.exists(dist_path):
-    app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+# Mount compiled React frontend static files for local/standalone execution
+if not os.environ.get("VERCEL") and not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    from fastapi.staticfiles import StaticFiles
+    dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+    if os.path.exists(dist_path):
+        app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
