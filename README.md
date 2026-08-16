@@ -1,7 +1,5 @@
 # 🎙️ MeetingMate - A GenAI Powered Smart Meeting Companion
 
-> **Capstone Project for the Generative AI Intensive Course**
-
 MeetingMate transforms chaotic, unstructured meetings into clear, actionable executive insights automatically. Upload meeting audio or record live speech via your microphone to instantly generate structured summaries, filterable action items, PowerPoint slide decks (`.pptx`), executive PDF reports, follow-up emails, and ChromaDB vector-grounded Q&A.
 
 ---
