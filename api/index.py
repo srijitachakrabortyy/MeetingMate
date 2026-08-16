@@ -1,9 +1,8 @@
 import sys
 import os
 
-# Add backend directory to Python sys.path for Vercel Serverless Function
-backend_path = os.path.join(os.path.dirname(__file__), "..", "backend")
-if backend_path not in sys.path:
-    sys.path.insert(0, backend_path)
+# Ensure backend folder is in Python search path for Vercel serverless imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from main import app
+from backend.main import app

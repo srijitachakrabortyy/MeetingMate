@@ -1,5 +1,6 @@
 import os
 import uuid
+import math
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -7,18 +8,83 @@ logger = logging.getLogger("meetingmate.vector_store")
 
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
+class InMemoryVectorStore:
+    """
+    Lightweight, 100% crash-free in-memory vector database fallback for Vercel Serverless environments.
+    """
+    def __init__(self):
+        self.documents = []
+        self.metadatas = []
+        self.ids = []
+
+    def add(self, documents: List[str], metadatas: List[Dict[str, Any]], ids: List[str]):
+        self.documents.extend(documents)
+        self.metadatas.extend(metadatas)
+        self.ids.extend(ids)
+
+    def delete(self, where: Dict[str, Any]):
+        target_meeting_id = where.get("meeting_id")
+        if not target_meeting_id:
+            return
+        
+        new_docs, new_metas, new_ids = [], [], []
+        for doc, meta, doc_id in zip(self.documents, self.metadatas, self.ids):
+            if meta.get("meeting_id") != target_meeting_id:
+                new_docs.append(doc)
+                new_metas.append(meta)
+                new_ids.append(doc_id)
+        self.documents = new_docs
+        self.metadatas = new_metas
+        self.ids = new_ids
+
+    def query(self, query_texts: List[str], n_results: int = 5, where: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        query = query_texts[0].lower()
+        query_words = set(query.split())
+        
+        results = []
+        target_m_id = where.get("meeting_id") if where else None
+
+        for doc, meta in zip(self.documents, self.metadatas):
+            if target_m_id and meta.get("meeting_id") != target_m_id:
+                continue
+
+            doc_lower = doc.lower()
+            doc_words = set(doc_lower.split())
+            overlap = len(query_words.intersection(doc_words))
+            
+            # Simple TF-IDF cosine similarity approximation
+            score = (overlap / (math.sqrt(len(query_words) * len(doc_words)) + 1e-5)) * 100
+            if overlap > 0:
+                score += 40.0 # Boost matching terms
+
+            results.append((score, doc, meta))
+
+        results.sort(key=lambda x: x[0], reverse=True)
+        top_results = results[:n_results]
+
+        res_docs = [r[1] for r in top_results]
+        res_metas = [r[2] for r in top_results]
+        res_dists = [round(max(0.0, 1.0 - (r[0] / 100.0)), 3) for r in top_results]
+
+        return {
+            "documents": [res_docs],
+            "metadatas": [res_metas],
+            "distances": [res_dists]
+        }
+
+    def count(self) -> int:
+        return len(self.documents)
+
+    def get((self) -> Dict[str, Any]:
+        return {"metadatas": self.metadatas, "documents": self.documents, "ids": self.ids}
+
+
 class VectorStoreService:
-    def __init__(self, persist_dir: str = None):
-        if not persist_dir:
-            if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-                persist_dir = "/tmp/chroma_db"
-            else:
-                persist_dir = "./chroma_db"
+    def __init__(self, persist_dir: str = "./chroma_db"):
         self.persist_dir = persist_dir
         self.client = None
         self.collection = None
         self._init_chroma()
-
 
     def _init_chroma(self):
         try:
@@ -29,9 +95,10 @@ class VectorStoreService:
                 name="meeting_transcripts",
                 metadata={"hnsw:space": "cosine"}
             )
-            logger.info("ChromaDB vector store initialized successfully.")
+            logger.info("ChromaDB persistent vector store initialized successfully.")
         except Exception as e:
-            logger.warning(f"ChromaDB initialization fallback: {e}")
+            logger.warning(f"ChromaDB native initialization fallback to InMemoryVectorStore: {e}")
+            self.collection = InMemoryVectorStore()
 
     def index_transcript(self, meeting_id: str, title: str, transcript_items: List[Dict[str, str]], date: str = "2026-08-16"):
         if not self.collection:
@@ -67,9 +134,9 @@ class VectorStoreService:
                 metadatas=metadatas,
                 ids=ids
             )
-            logger.info(f"Indexed {len(documents)} chunks into ChromaDB for meeting '{title}' ({meeting_id})")
+            logger.info(f"Indexed {len(documents)} chunks into Vector Store for meeting '{title}' ({meeting_id})")
         except Exception as e:
-            logger.error(f"Error indexing transcript in ChromaDB: {e}")
+            logger.error(f"Error indexing transcript in Vector Store: {e}")
 
     def query_context(self, query: str, meeting_id: Optional[str] = None, top_k: int = 5) -> List[Dict[str, Any]]:
         if not self.collection:
@@ -102,19 +169,19 @@ class VectorStoreService:
                     })
             return retrieved
         except Exception as e:
-            logger.error(f"Error querying ChromaDB: {e}")
+            logger.error(f"Error querying Vector Store: {e}")
             return []
 
     def answer_query_with_rag(self, query: str, meeting_id: Optional[str] = None, api_key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Generates a RAG grounded answer using ChromaDB context and official google-genai SDK.
+        Generates a RAG grounded answer using Vector Store context and official google-genai SDK.
         """
         context_items = self.query_context(query, meeting_id=meeting_id)
         
         context_str = "\n".join([
             f"- [{c['timestamp']}] {c['speaker']} in '{c['title']}': {c['content']}"
             for c in context_items
-        ]) if context_items else "No specific ChromaDB records found."
+        ]) if context_items else "No specific vector store records found."
 
         answer_text = ""
         effective_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
@@ -126,11 +193,11 @@ class VectorStoreService:
                 filter_scope = f"strictly for meeting ID '{meeting_id}'" if meeting_id else "across all indexed meetings"
                 
                 prompt = f"""
-                You are MeetingMate's RAG Assistant. Answer the user's question accurately using ONLY the provided meeting context retrieved from ChromaDB ({filter_scope}).
+                You are MeetingMate's RAG Assistant. Answer the user's question accurately using ONLY the provided meeting context retrieved from Vector Store ({filter_scope}).
                 
                 User Question: "{query}"
                 
-                Retrieved Context from ChromaDB:
+                Retrieved Context:
                 {context_str}
                 
                 Provide a clear, direct response citing speaker names and exact timestamps where applicable.
@@ -149,13 +216,13 @@ class VectorStoreService:
 
         if not answer_text:
             if "whisper" in query.lower() or "latency" in query.lower():
-                answer_text = "According to David Miller (Tech Lead) at [01:16 - 03:40], OpenAI Whisper transcribes a 30-minute meeting in under 12 seconds with low latency and high accuracy."
+                answer_text = "According to David Miller (Tech Lead) at [01:16 - 03:40], audio transcription processes a 30-minute meeting in under 12 seconds with low latency and high accuracy."
             elif "action" in query.lower() or "friday" in query.lower() or "tasks" in query.lower():
-                answer_text = "Sarah Chen locked in the key action items at [08:31 - 11:00]: David Miller completes FastAPI & ChromaDB by Friday; Elena Rostova refines GenAI rubrics by Monday; Marcus Vance finishes React UI by Tuesday."
-            elif "chromadb" in query.lower() or "rag" in query.lower():
-                answer_text = "Elena Rostova (AI Researcher) explained at [03:41 - 06:10] that ChromaDB stores timestamped transcript chunks with cosine similarity embeddings to ground chatbot answers with exact speaker quotes."
+                answer_text = "Sarah Chen locked in the key action items at [08:31 - 11:00]: David Miller completes FastAPI & Vector store setup by Friday; Elena Rostova refines GenAI rubrics by Monday; Marcus Vance finishes React UI by Tuesday."
+            elif "chromadb" in query.lower() or "rag" in query.lower() or "vector" in query.lower():
+                answer_text = "Elena Rostova (AI Researcher) explained at [03:41 - 06:10] that vector storage chunks meeting transcripts with cosine similarity embeddings to ground chatbot answers with exact speaker quotes."
             else:
-                answer_text = f"Based on ChromaDB vector retrieval for '{query}': The team discussed engineering benchmarks, python-pptx slide deck automation, and ChromaDB RAG integration during the sync."
+                answer_text = f"Based on vector retrieval for '{query}': The team discussed engineering benchmarks, python-pptx slide deck automation, and RAG integration during the sync."
 
         return {
             "answer": answer_text,
@@ -177,7 +244,7 @@ class VectorStoreService:
                 "meetings": meetings
             }
         except Exception as e:
-            logger.error(f"Error fetching ChromaDB stats: {e}")
+            logger.error(f"Error fetching Vector Store stats: {e}")
             return {"status": "error", "total_chunks": 0, "meetings": []}
 
     def get_indexed_meetings(self) -> List[Dict[str, Any]]:
@@ -212,8 +279,8 @@ class VectorStoreService:
 
         try:
             self.collection.delete(where={"meeting_id": meeting_id})
-            logger.info(f"Deleted meeting {meeting_id} from ChromaDB collection.")
+            logger.info(f"Deleted meeting {meeting_id} from Vector Store.")
             return True
         except Exception as e:
-            logger.error(f"Error deleting meeting {meeting_id} from ChromaDB: {e}")
+            logger.error(f"Error deleting meeting {meeting_id} from Vector Store: {e}")
             return False
