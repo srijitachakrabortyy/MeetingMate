@@ -120,8 +120,3 @@ MeetingMate operates **100% free of charge** using Google Gemini's Free Tier:
 | **📊 Widescreen PPTX Deck** | Automated PowerPoint presentation generation using `python-pptx` with 1-click confetti download |
 | **📑 PDF Executive Report** | Downloadable PDF document built with `reportlab` |
 | **⭐ GenAI Rubric Evaluator** | LLM-as-a-Judge grading output clarity, actionability, and completeness |
-
----
-
-## 📄 License
-This project is created as part of the **Generative AI Intensive Course Capstone**.
