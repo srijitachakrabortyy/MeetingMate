@@ -8,11 +8,17 @@ logger = logging.getLogger("meetingmate.vector_store")
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
 class VectorStoreService:
-    def __init__(self, persist_dir: str = "./chroma_db"):
+    def __init__(self, persist_dir: str = None):
+        if not persist_dir:
+            if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+                persist_dir = "/tmp/chroma_db"
+            else:
+                persist_dir = "./chroma_db"
         self.persist_dir = persist_dir
         self.client = None
         self.collection = None
         self._init_chroma()
+
 
     def _init_chroma(self):
         try:

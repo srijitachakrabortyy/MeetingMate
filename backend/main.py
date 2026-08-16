@@ -117,7 +117,7 @@ async def process_audio(
             transcript = transcriber.get_sample_transcript()
             filename = "sample_audio.mp3"
         else:
-            temp_dir = "./temp_uploads"
+            temp_dir = "/tmp/temp_uploads" if os.environ.get("VERCEL") else "./temp_uploads"
             os.makedirs(temp_dir, exist_ok=True)
             temp_path = os.path.join(temp_dir, file.filename)
             
